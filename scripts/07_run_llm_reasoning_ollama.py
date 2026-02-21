@@ -78,6 +78,17 @@ def main():
                     resp, latency_s = call_ollama(prompt)
                     raw_text = resp.get("response", "")
                     parsed = extract_json(raw_text)
+
+                    # Guardrail: force evidence to match state_risk (copy-through)
+                    if parsed is not None and isinstance(parsed, dict):
+                        ev = parsed.get("evidence", {})
+                        if isinstance(ev, dict):
+                            for k, sv in record["state_risk"].items():
+                                # Only overwrite keys we care about
+                                if k in ev:
+                                    ev[k] = sv
+                            parsed["evidence"] = ev
+                            
                     break
                 except Exception as e:
                     last_err = str(e)

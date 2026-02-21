@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from src.eval.groundedness import check_prediction
 
-IN_PATH = Path("data/derived/predictions_stub_v1.jsonl")
+IN_PATH = Path("data/derived/predictions_ollama_v1.jsonl")
 
 def main():
     n = 0

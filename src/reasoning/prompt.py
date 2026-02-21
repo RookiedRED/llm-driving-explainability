@@ -8,34 +8,47 @@ ALLOWED_ACTIONS = [
     "lane_change_right"
 ]
 
-def build_prompt(state: dict) -> str:
-    # Keep prompt short and structured to reduce hallucination
+def build_policy_prompt(state: dict) -> str:
     schema = {
-        "action": f"One of {ALLOWED_ACTIONS}",
-        "explanation": ["bullet strings, grounded in state only"],
-        "evidence": {
-            "risk_level_ttc": "state.risk.level",
-            "min_ttc_s": "state.risk.min_ttc_s",
-            "risk_level_physics": "state.risk_physics.level",
-            "closest_front_object_m": "state.risk_physics.closest_front_object_m",
-            "required_deceleration_mps2": "state.risk_physics.required_deceleration_mps2",
-        },
-        "safety_notes": ["short safety notes, no new facts"],
+        "proposed_action": f"One of {ALLOWED_ACTIONS}",
+        "rationale": [
+            "Short bullets grounded in the input state",
+            "No invented numbers or objects"
+        ],
         "confidence": "float 0..1"
     }
 
-    return f"""
-You are an autonomous driving explainability system.
+    rules = f"""
+        Rules (STRICT):
+        - Decide a proposed_action based ONLY on the given state.
+        - Do NOT invent numbers, objects, or signals not present.
+        - Do NOT output evidence fields; the system will attach evidence and run safety guardrails.
+        - Output MUST be valid JSON only (no markdown, no extra text).
+        - Allowed actions: {ALLOWED_ACTIONS}
 
-Rules:
-- Use ONLY the provided driving state JSON. Do NOT invent objects, numbers, or signals not present.
-- Output MUST be valid JSON only (no markdown, no extra text).
-- Keep explanations short, concrete, and safety-focused.
-- Choose an action from: {ALLOWED_ACTIONS}
+        Decision objective:
+        - Maintain safety (highest priority).
+        - Avoid unnecessary braking in low-risk situations.
+        - Prefer smooth driving (slow_down over brake when sufficient).
+        - Only use brake when strong deceleration is required.
 
-Driving state:
-{json.dumps(state, ensure_ascii=False)}
+        """.strip()
+    
+    decision_objective = """
+        Decision objective:
+        - Maintain safety (highest priority).
+        - Avoid unnecessary braking in low-risk situations.
+        - Prefer smooth driving (slow_down over brake when sufficient).
+        - Only use brake when strong deceleration is required.
+        """.strip() 
+    
+    return f"""{rules}
 
-Return JSON with this schema:
-{json.dumps(schema, ensure_ascii=False)}
-""".strip()
+        {decision_objective}
+
+        Driving state:
+        {json.dumps(state, ensure_ascii=False)}
+
+        Return JSON with this schema:
+        {json.dumps(schema, ensure_ascii=False)}
+        """.strip()
